@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'hcms-backend',
-      cwd: '/var/www/hcms/backend',
-      script: '/var/www/hcms/backend/venv/bin/gunicorn',
+      cwd: '/var/www/hybrid-client-management-system/backend',
+      script: '/var/www/hybrid-client-management-system/backend/venv/bin/gunicorn',
       args: 'config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 120 --access-logfile -',
       interpreter: 'none',
       env: {
@@ -12,7 +12,7 @@ module.exports = {
     },
     {
       name: 'hcms-dashboard',
-      cwd: '/var/www/hcms/dashboard/.next/standalone',
+      cwd: '/var/www/hybrid-client-management-system/dashboard/.next/standalone',
       script: 'server.js',
       interpreter: 'node',
       env: {
