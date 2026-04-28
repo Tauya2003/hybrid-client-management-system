@@ -74,6 +74,10 @@ class RepaymentScheduleSerializer(serializers.ModelSerializer):
 class LoanSerializer(serializers.ModelSerializer):
     client_name = serializers.CharField(source='client.full_name', read_only=True)
     product_name = serializers.CharField(source='loan_product.name', read_only=True)
+    interest_rate = serializers.DecimalField(source='loan_product.interest_rate', max_digits=5, decimal_places=2, read_only=True)
+    interest_type = serializers.CharField(source='loan_product.interest_type', read_only=True)
+    repayment_frequency = serializers.CharField(source='loan_product.repayment_frequency', read_only=True)
+    term = serializers.IntegerField(source='application.term', read_only=True)
     disbursed_by_name = serializers.CharField(source='disbursed_by.full_name', read_only=True)
     schedule = RepaymentScheduleSerializer(many=True, read_only=True)
 
@@ -82,6 +86,7 @@ class LoanSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'loan_number', 'client', 'client_name', 'group',
             'loan_product', 'product_name',
+            'interest_rate', 'interest_type', 'repayment_frequency', 'term',
             'principal_amount', 'interest_amount', 'processing_fee',
             'total_amount', 'amount_paid', 'outstanding_balance',
             'disbursement_date', 'maturity_date', 'status',

@@ -90,6 +90,20 @@ export interface Loan {
   maturity_date: string | null;
 }
 
+export interface LoanDetail extends Loan {
+  loan_product: string;
+  interest_rate: number;
+  interest_type: string;
+  repayment_frequency: string;
+  term: number;
+  interest_amount: number;
+  processing_fee: number;
+  total_amount: number;
+  amount_paid: number;
+  disbursed_by_name: string;
+  schedule: RepaymentSchedule[];
+}
+
 export interface RepaymentSchedule {
   id: string;
   installment_number: number;

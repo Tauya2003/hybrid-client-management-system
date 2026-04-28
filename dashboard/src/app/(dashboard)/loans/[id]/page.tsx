@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { api, fmt } from '@/lib/api';
-import type { Loan, RepaymentSchedule, Repayment } from '@/lib/types';
+import type { LoanDetail, Repayment } from '@/lib/types';
 import { Badge, statusBadge } from '@/components/ui/Badge';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import clsx from 'clsx';
@@ -30,17 +30,17 @@ function scheduleIcon(status: string) {
 export default function LoanDetailPage() {
   const { id } = useParams<{ id: string }>();
 
-  const { data: loan, isLoading } = useSWR<Loan>(`/loans/${id}/`, fetcher);
-  const { data: scheduleData } = useSWR<{ results: RepaymentSchedule[] }>(`/loans/${id}/schedule/`, fetcher);
+  const { data: loan, isLoading } = useSWR<LoanDetail>(`/loans/${id}/`, fetcher);
   const { data: repaymentsData } = useSWR<{ results: Repayment[] }>(`/repayments/?loan=${id}`, fetcher);
 
   if (isLoading) return <PageLoader />;
   if (!loan) return <div className="p-6 text-slate-500">Loan not found.</div>;
 
-  const schedule = scheduleData?.results ?? [];
   const repayments = repaymentsData?.results ?? [];
-  const repaidPct = loan.principal > 0
-    ? Math.min(100, ((loan.principal - loan.outstanding_balance) / loan.principal) * 100)
+  const schedule = loan.schedule ?? [];
+
+  const repaidPct = loan.total_amount > 0
+    ? Math.min(100, (loan.amount_paid / loan.total_amount) * 100)
     : 0;
 
   return (
@@ -51,14 +51,11 @@ export default function LoanDetailPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold font-mono">{loan.loan_number}</h1>
-          <Link href={`/clients/${loan.client.id}`} className="text-sm text-blue-600 hover:underline">
-            {loan.client.full_name}
+          <Link href={`/clients/${loan.client}`} className="text-sm text-blue-600 hover:underline">
+            {loan.client_name}
           </Link>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          {loan.days_overdue > 0 && (
-            <Badge variant="red">{loan.days_overdue}d overdue</Badge>
-          )}
+        <div className="ml-auto">
           <Badge variant={statusBadge(loan.status)}>{loan.status}</Badge>
         </div>
       </div>
@@ -77,7 +74,7 @@ export default function LoanDetailPage() {
         </div>
         <div className="flex justify-between mt-2">
           <span className="text-xs text-slate-500">
-            Repaid: <strong className="text-slate-700">{fmt.currency(loan.total_repaid)}</strong>
+            Repaid: <strong className="text-slate-700">{fmt.currency(loan.amount_paid)}</strong>
           </span>
           <span className="text-xs text-slate-500">
             Outstanding: <strong className="text-red-600">{fmt.currency(loan.outstanding_balance)}</strong>
@@ -89,13 +86,15 @@ export default function LoanDetailPage() {
         {/* Loan details */}
         <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-3">Loan Details</h2>
-          <InfoRow label="Loan Product" value={loan.loan_product.name} />
-          <InfoRow label="Principal" value={fmt.currency(loan.principal)} />
+          <InfoRow label="Loan Product" value={loan.product_name} />
+          <InfoRow label="Principal" value={fmt.currency(loan.principal_amount)} />
+          <InfoRow label="Interest" value={fmt.currency(loan.interest_amount)} />
+          <InfoRow label="Total Amount" value={fmt.currency(loan.total_amount)} />
           <InfoRow label="Interest Rate" value={`${loan.interest_rate}% (${loan.interest_type})`} />
-          <InfoRow label="Term" value={`${loan.term} months`} />
+          <InfoRow label="Term" value={`${loan.term} periods`} />
           <InfoRow label="Frequency" value={loan.repayment_frequency} />
-          <InfoRow label="Disbursed" value={loan.disbursed_at ? fmt.date(loan.disbursed_at) : '—'} />
-          <InfoRow label="Next Payment" value={loan.next_payment_date ? fmt.date(loan.next_payment_date) : '—'} />
+          <InfoRow label="Disbursed" value={loan.disbursement_date ? fmt.date(loan.disbursement_date) : '—'} />
+          <InfoRow label="Matures" value={loan.maturity_date ? fmt.date(loan.maturity_date) : '—'} />
         </div>
 
         {/* Recent repayments */}
@@ -128,7 +127,9 @@ export default function LoanDetailPage() {
       {/* Repayment schedule */}
       <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
         <div className="px-5 py-4 border-b border-slate-50">
-          <h2 className="text-sm font-semibold text-slate-700">Repayment Schedule ({schedule.length} installments)</h2>
+          <h2 className="text-sm font-semibold text-slate-700">
+            Repayment Schedule ({schedule.length} installments)
+          </h2>
         </div>
         {schedule.length === 0 ? (
           <p className="text-center py-8 text-slate-400 text-sm">No schedule generated</p>
