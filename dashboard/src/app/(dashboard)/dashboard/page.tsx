@@ -215,8 +215,8 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-slate-50">
               {appsData?.results.map((app) => (
                 <tr key={app.id} className="hover:bg-slate-50">
-                  <td className="table-cell font-medium">{app.client.full_name}</td>
-                  <td className="table-cell text-slate-500">{app.loan_product_name}</td>
+                  <td className="table-cell font-medium">{app.client_name}</td>
+                  <td className="table-cell text-slate-500">{app.product_name}</td>
                   <td className="table-cell font-medium">{fmt.currency(app.amount_requested)}</td>
                   <td className="table-cell text-slate-500">{fmt.date(app.applied_at)}</td>
                   <td className="table-cell">
