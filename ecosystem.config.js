@@ -16,7 +16,7 @@ module.exports = {
       script: 'server.js',
       interpreter: 'node',
       env: {
-        PORT: 3000,
+        PORT: 3008,
         HOSTNAME: '127.0.0.1',
         NODE_ENV: 'production',
       },
