@@ -7,8 +7,10 @@ Policy:
   - Profile records (client, group, group_membership, loan_application):
     last_write_wins based on updated_at timestamp.
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Literal
+from uuid import UUID
 
 FINANCIAL_ENTITIES = frozenset(['repayment', 'savings_transaction'])
 
@@ -49,15 +51,26 @@ def resolve(entity_type: str, server_obj, client_payload: dict) -> tuple[Resolut
 
 def _model_to_dict(instance) -> dict:
     from django.forms.models import model_to_dict
-    data = model_to_dict(instance)
-    # Ensure UUID fields are strings
-    for k, v in data.items():
-        import uuid
-        if isinstance(v, uuid.UUID):
-            data[k] = str(v)
+    data = _json_safe(model_to_dict(instance))
     data['id'] = str(instance.id)
     data['updated_at'] = instance.updated_at.isoformat()
     data['created_at'] = instance.created_at.isoformat()
     data['version'] = instance.version
     data['is_deleted'] = instance.is_deleted
     return data
+
+
+def _json_safe(value):
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, tuple):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return value
