@@ -26,6 +26,23 @@ from .conflict_resolver import resolve, _model_to_dict
 logger = logging.getLogger(__name__)
 
 
+def _record_priority(record: dict) -> int:
+    """
+    Ensure parent entities are processed before dependents.
+    """
+    entity_type = record.get('entity_type')
+    priorities = {
+        'client': 0,
+        'group': 1,
+        'group_membership': 2,
+        'loan_application': 3,
+        'repayment': 4,
+        'savings_account': 5,
+        'savings_transaction': 6,
+    }
+    return priorities.get(entity_type, 100)
+
+
 def _serialize_instance(instance) -> dict:
     data = _model_to_dict(instance)
     return data
@@ -77,7 +94,7 @@ def push(request):
         status='success',
     )
 
-    for record in records:
+    for record in sorted(records, key=_record_priority):
         entity_type = record.get('entity_type')
         local_id = record.get('local_id')
         operation = record.get('operation')
