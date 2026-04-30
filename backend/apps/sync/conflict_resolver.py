@@ -12,6 +12,8 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
+from django.db.models.fields.files import FieldFile
+
 FINANCIAL_ENTITIES = frozenset(['repayment', 'savings_transaction'])
 
 Resolution = Literal['server_wins', 'client_wins']
@@ -73,4 +75,6 @@ def _json_safe(value):
         return float(value)
     if isinstance(value, (datetime, date)):
         return value.isoformat()
+    if isinstance(value, FieldFile):
+        return value.url if value and hasattr(value, 'url') else ''
     return value
