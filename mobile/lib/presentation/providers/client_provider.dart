@@ -48,6 +48,10 @@ class ClientActions {
     String nextOfKinPhone = '',
     String? photoPath,
   }) async {
+    if (_userId.isEmpty || _branchId.isEmpty) {
+      throw StateError('Cannot create client while user profile is incomplete. Please log out and log in again.');
+    }
+
     final id = _uuid.v4();
     final now = DateTime.now().toUtc().toIso8601String();
 

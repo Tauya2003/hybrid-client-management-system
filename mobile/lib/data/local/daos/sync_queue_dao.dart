@@ -19,6 +19,16 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase> with _$SyncQueueDaoMixi
     return into(syncQueueTable).insert(item);
   }
 
+  Future<bool> hasActiveItemForEntity(String entityType, String entityId) async {
+    final item = await (select(syncQueueTable)
+          ..where((t) =>
+              t.entityType.equals(entityType) &
+              t.entityId.equals(entityId) &
+              (t.status.equals('pending') | t.status.equals('error'))))
+        .getSingleOrNull();
+    return item != null;
+  }
+
   Future<void> markDone(int id) {
     return (update(syncQueueTable)..where((t) => t.id.equals(id)))
         .write(const SyncQueueTableCompanion(status: Value('done')));
@@ -38,7 +48,7 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase> with _$SyncQueueDaoMixi
 
   Future<void> resetForRetry() {
     return (update(syncQueueTable)
-          ..where((t) => t.status.equals('error') & t.retryCount.isSmallerThanValue(3)))
+          ..where((t) => t.status.equals('error')))
         .write(const SyncQueueTableCompanion(status: Value('pending')));
   }
 

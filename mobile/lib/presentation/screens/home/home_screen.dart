@@ -6,23 +6,64 @@ import '../../providers/auth_provider.dart';
 import '../../widgets/common/app_widgets.dart';
 import '../../../sync/sync_engine.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _syncSpinController;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncSpinController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+  }
+
+  @override
+  void dispose() {
+    _syncSpinController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
+    final syncStatus = ref.watch(syncStatusProvider);
+    final isSyncing = syncStatus == SyncStatus.syncing;
     final user = auth.user;
     final theme = Theme.of(context);
+
+    if (isSyncing) {
+      if (!_syncSpinController.isAnimating) {
+        _syncSpinController.repeat();
+      }
+    } else {
+      if (_syncSpinController.isAnimating) {
+        _syncSpinController.stop();
+      }
+      _syncSpinController.value = 0;
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sync now',
-            onPressed: () async {
+            icon: RotationTransition(
+              turns: _syncSpinController,
+              child: const Icon(Icons.sync),
+            ),
+            tooltip: isSyncing ? 'Syncing...' : 'Sync now',
+            onPressed: isSyncing
+                ? null
+                : () async {
               final result = await ref.read(syncEngineProvider).triggerSync();
               if (context.mounted) {
                 final msg = result.errors > 0

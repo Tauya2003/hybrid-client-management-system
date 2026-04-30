@@ -17,9 +17,16 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
   final _amountCtrl = TextEditingController();
   final _referenceCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  String? _selectedLoanId;
   String _paymentMethod = 'cash';
   DateTime _paymentDate = DateTime.now();
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedLoanId = widget.loanId;
+  }
 
   @override
   void dispose() {
@@ -31,9 +38,9 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (widget.loanId == null) {
+    if (_selectedLoanId == null || _selectedLoanId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No loan selected')),
+        const SnackBar(content: Text('Please select a loan')),
       );
       return;
     }
@@ -41,7 +48,7 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
     setState(() => _saving = true);
     try {
       await ref.read(repaymentActionsProvider).recordRepayment(
-            loanId: widget.loanId!,
+            loanId: _selectedLoanId!,
             amount: double.parse(_amountCtrl.text.trim()),
             paymentDate: _paymentDate.toIso8601String().split('T').first,
             paymentMethod: _paymentMethod,
@@ -71,6 +78,8 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loansAsync = ref.watch(loansProvider(null));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Record Repayment')),
       body: Form(
@@ -78,6 +87,50 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.loanId == null) ...[
+              loansAsync.when(
+                loading: () => const LinearProgressIndicator(),
+                error: (e, _) => Text('Could not load loans: $e'),
+                data: (loans) {
+                  final activeLoans = loans
+                      .where((l) => l.status == 'active' && l.isDeleted == false)
+                      .toList();
+                  if (activeLoans.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'No active loans available for repayment.',
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    );
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedLoanId,
+                      decoration: const InputDecoration(
+                        labelText: 'Loan *',
+                        prefixIcon: Icon(Icons.account_balance_wallet),
+                        border: OutlineInputBorder(),
+                      ),
+                      items: activeLoans
+                          .map(
+                            (loan) => DropdownMenuItem(
+                              value: loan.id,
+                              child: Text(
+                                '${loan.loanNumber} - \$${loan.outstandingBalance.toStringAsFixed(2)}',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (v) => setState(() => _selectedLoanId = v),
+                      validator: (v) => (v == null || v.isEmpty) ? 'Loan is required' : null,
+                    ),
+                  );
+                },
+              ),
+            ],
             TextFormField(
               controller: _amountCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),

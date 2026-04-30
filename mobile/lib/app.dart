@@ -8,6 +8,7 @@ import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/clients/client_list_screen.dart';
 import 'presentation/screens/clients/client_detail_screen.dart';
 import 'presentation/screens/clients/client_form_screen.dart';
+import 'presentation/screens/groups/group_list_screen.dart';
 import 'presentation/screens/loans/loan_list_screen.dart';
 import 'presentation/screens/loans/loan_detail_screen.dart';
 import 'presentation/screens/loans/loan_application_form_screen.dart';
@@ -38,6 +39,9 @@ final _routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => ClientDetailScreen(clientId: state.pathParameters['id']!),
       ),
 
+      // Groups
+      GoRoute(path: '/groups', builder: (_, __) => const GroupListScreen()),
+
       // Loans
       GoRoute(path: '/loans', builder: (_, __) => const LoanListScreen()),
       GoRoute(
@@ -60,7 +64,7 @@ final _routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Savings
-      GoRoute(path: '/savings', builder: (_, __) => const ClientListScreen()),
+      GoRoute(path: '/savings', builder: (_, __) => const SavingsListScreen()),
       GoRoute(
         path: '/savings/:id',
         builder: (_, state) => SavingsDetailScreen(accountId: state.pathParameters['id']!),
@@ -77,7 +81,7 @@ class MFIApp extends ConsumerWidget {
     final router = ref.watch(_routerProvider);
 
     return MaterialApp.router(
-      title: 'MFI Field App',
+      title: 'MFI Connect',
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: const Color(0xFF1565C0),

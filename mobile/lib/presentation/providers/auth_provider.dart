@@ -53,9 +53,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final user = AppUser.fromJson(data['user'] as Map<String, dynamic>);
       state = AuthState(user: user);
     } on DioException catch (e) {
-      final detail = (e.response?.data as Map<String, dynamic>?)?['detail']
-          ?? 'Login failed. Check your credentials.';
-      state = AuthState(error: detail as String);
+      final serverDetail = (e.response?.data as Map<String, dynamic>?)?['detail'];
+      final String error;
+      if (serverDetail != null) {
+        error = serverDetail as String;
+      } else if (e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        error = 'Cannot reach server. Check your internet connection.\n(${e.message})';
+      } else if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        error = 'Connection timed out. Try again.';
+      } else if (e.type == DioExceptionType.badCertificate) {
+        error = 'SSL certificate error. Contact support.';
+      } else {
+        error = 'Login failed: ${e.type} ${e.message}';
+      }
+      state = AuthState(error: error);
     }
   }
 

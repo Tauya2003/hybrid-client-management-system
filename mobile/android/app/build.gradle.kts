@@ -7,8 +7,7 @@ plugins {
 
 android {
     namespace = "com.mfi.mobile"
-    compileSdk = flutter.compileSdkVersion
-    // highest NDK version required across all plugins (jni requires 28.2.13676358)
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
 
     compileOptions {

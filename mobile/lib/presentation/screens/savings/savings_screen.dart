@@ -1,8 +1,116 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../data/local/database/app_database.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/client_provider.dart';
 import '../../providers/savings_provider.dart';
 import '../../widgets/common/app_widgets.dart';
+
+class SavingsListScreen extends ConsumerStatefulWidget {
+  const SavingsListScreen({super.key});
+
+  @override
+  ConsumerState<SavingsListScreen> createState() => _SavingsListScreenState();
+}
+
+class _SavingsListScreenState extends ConsumerState<SavingsListScreen> {
+  String? _selectedClientId;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final clientsAsync = ref.watch(clientsStreamProvider(user?.branchId));
+    final accountsAsync = _selectedClientId == null
+        ? const AsyncValue<List<SavingsAccountsTableData>>.data([])
+        : ref.watch(savingsAccountsProvider(_selectedClientId!));
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Savings')),
+      body: Column(
+        children: [
+          const SyncStatusBanner(),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: clientsAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Could not load clients: $e'),
+              data: (clients) {
+                if (clients.isEmpty) {
+                  return const Text(
+                    'No clients available.',
+                    style: TextStyle(color: Colors.orange),
+                  );
+                }
+                if (_selectedClientId == null ||
+                    !clients.any((c) => c.id == _selectedClientId)) {
+                  _selectedClientId = clients.first.id;
+                }
+                return DropdownButtonFormField<String>(
+                  value: _selectedClientId,
+                  decoration: const InputDecoration(
+                    labelText: 'Client',
+                    prefixIcon: Icon(Icons.person),
+                    border: OutlineInputBorder(),
+                  ),
+                  items: clients
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text('${c.firstName} ${c.lastName}'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedClientId = v),
+                );
+              },
+            ),
+          ),
+          Expanded(
+            child: accountsAsync.when(
+              loading: () => const LoadingIndicator(),
+              error: (e, _) => Center(child: Text('Error: $e')),
+              data: (accounts) {
+                if (_selectedClientId == null) {
+                  return const EmptyState(
+                    icon: Icons.person_search,
+                    title: 'Select a client',
+                    subtitle: 'Choose a client to view savings accounts.',
+                  );
+                }
+                if (accounts.isEmpty) {
+                  return const EmptyState(
+                    icon: Icons.savings_outlined,
+                    title: 'No savings accounts',
+                    subtitle: 'This client has no savings accounts yet.',
+                  );
+                }
+                return ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: accounts.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (_, i) {
+                    final a = accounts[i];
+                    return Card(
+                      child: ListTile(
+                        leading: const CircleAvatar(child: Icon(Icons.savings)),
+                        title: Text(a.accountNumber),
+                        subtitle: Text(a.accountType),
+                        trailing: Text('\$${a.balance.toStringAsFixed(2)}'),
+                        onTap: () => context.push('/savings/${a.id}'),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class SavingsDetailScreen extends ConsumerWidget {
   final String accountId;

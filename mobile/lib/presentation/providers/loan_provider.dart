@@ -62,6 +62,10 @@ class RepaymentActions {
     String referenceNumber = '',
     String notes = '',
   }) async {
+    if (_userId.isEmpty) {
+      throw StateError('Cannot record repayment while user profile is missing. Please log out and log in again.');
+    }
+
     final id = _uuid.v4();
     final now = DateTime.now().toUtc().toIso8601String();
 
@@ -126,8 +130,14 @@ class LoanApplicationActions {
     required String purpose,
     String? groupId,
   }) async {
+    if (_userId.isEmpty) {
+      throw StateError('Cannot create loan application while user profile is missing. Please log out and log in again.');
+    }
+
     final id = _uuid.v4();
     final now = DateTime.now().toUtc().toIso8601String();
+
+    await _ensureClientQueuedForSync(clientId, now);
 
     await _db.loansDao.upsertApplication(LoanApplicationsTableCompanion(
       id: Value(id),
@@ -171,5 +181,42 @@ class LoanApplicationActions {
     ));
 
     return id;
+  }
+
+  Future<void> _ensureClientQueuedForSync(String clientId, String now) async {
+    final client = await _db.clientsDao.getClientById(clientId);
+    if (client == null) return;
+
+    if (client.syncStatus == 'synced') return;
+
+    final alreadyQueued = await _db.syncQueueDao.hasActiveItemForEntity('client', clientId);
+    if (alreadyQueued) return;
+
+    final payload = {
+      'id': client.id,
+      'national_id': client.nationalId,
+      'phone_number': client.phoneNumber,
+      'first_name': client.firstName,
+      'last_name': client.lastName,
+      'date_of_birth': client.dateOfBirth,
+      'gender': client.gender,
+      'address': client.address,
+      'next_of_kin_name': client.nextOfKinName,
+      'next_of_kin_phone': client.nextOfKinPhone,
+      'branch_id': client.branchId,
+      'created_by_id': client.createdById,
+      'is_active': client.isActive,
+      'updated_at': now,
+      'version': client.version,
+      'is_deleted': client.isDeleted,
+    };
+
+    await _db.syncQueueDao.enqueue(SyncQueueTableCompanion(
+      entityType: const Value('client'),
+      entityId: Value(client.id),
+      operation: const Value('create'),
+      payload: Value(jsonEncode(payload)),
+      createdAt: Value(now),
+    ));
   }
 }

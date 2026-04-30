@@ -84,8 +84,16 @@ class SyncEngine {
     final pending = await _db.syncQueueDao.getPendingItems();
     if (pending.isEmpty) return const SyncResult(pushed: 0, conflicts: 0, errors: 0);
 
+    final sortedPending = [...pending]..sort((a, b) {
+      final byType = _entityPushPriority(a.entityType).compareTo(_entityPushPriority(b.entityType));
+      if (byType != 0) return byType;
+      final byTime = a.createdAt.compareTo(b.createdAt);
+      if (byTime != 0) return byTime;
+      return a.id.compareTo(b.id);
+    });
+
     final deviceId = await _storage.getOrCreateDeviceId();
-    final records = pending.map((item) {
+    final records = sortedPending.map((item) {
       return {
         'entity_type': item.entityType,
         'local_id': item.entityId,
@@ -107,7 +115,7 @@ class SyncEngine {
       final errors = data['errors'] as List? ?? [];
 
       // Mark successfully processed items as done
-      for (final item in pending) {
+      for (final item in sortedPending) {
         final result = [...processed, ...conflicts].firstWhere(
           (r) => r['local_id'] == item.entityId,
           orElse: () => null,
@@ -121,9 +129,9 @@ class SyncEngine {
       for (final err in errors) {
         final localId = err['local_id'] as String?;
         if (localId == null) continue;
-        final item = pending.firstWhere(
+        final item = sortedPending.firstWhere(
           (i) => i.entityId == localId,
-          orElse: () => pending.first,
+          orElse: () => sortedPending.first,
         );
         await _db.syncQueueDao.markError(item.id, err['error'] as String? ?? 'Unknown error');
       }
@@ -141,6 +149,27 @@ class SyncEngine {
     } on DioException catch (e) {
       // Network error — leave items as pending for next sync
       return SyncResult(pushed: 0, conflicts: 0, errors: 1, message: e.message);
+    }
+  }
+
+  int _entityPushPriority(String entityType) {
+    switch (entityType) {
+      case 'client':
+        return 0;
+      case 'group':
+        return 1;
+      case 'group_membership':
+        return 2;
+      case 'loan_application':
+        return 3;
+      case 'repayment':
+        return 4;
+      case 'savings_account':
+        return 5;
+      case 'savings_transaction':
+        return 6;
+      default:
+        return 100;
     }
   }
 

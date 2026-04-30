@@ -13,7 +13,7 @@ import uuid
 import logging
 from datetime import datetime, timezone
 
-from django.db import transaction, IntegrityError
+from django.db import IntegrityError
 from django.forms.models import model_to_dict
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
@@ -90,14 +90,13 @@ def push(request):
         Model = ENTITY_REGISTRY[entity_type]
 
         try:
-            with transaction.atomic():
-                result = _process_record(
-                    Model, entity_type, local_id, operation, payload, request.user, sync_log
-                )
-                if result['status'] == 'conflict':
-                    conflicts.append(result)
-                else:
-                    processed.append(result)
+            result = _process_record(
+                Model, entity_type, local_id, operation, payload, request.user, sync_log
+            )
+            if result['status'] == 'conflict':
+                conflicts.append(result)
+            else:
+                processed.append(result)
         except Exception as e:
             logger.exception('Error processing sync record local_id=%s', local_id)
             errors.append({'local_id': local_id, 'error': str(e)})
@@ -154,11 +153,9 @@ def _process_record(Model, entity_type, local_id, operation, payload, user, sync
                 'server_data': _serialize_instance(instance),
             }
         except IntegrityError as e:
-            # Race condition — another device created this record simultaneously
-            try:
-                existing = Model.objects.get(pk=record_id)
-            except Model.DoesNotExist:
-                raise e
+            # Do not run further queries in this atomic block after an IntegrityError.
+            # Let the caller capture this as a per-record sync error.
+            raise e
 
     # Record exists — check for conflict
     resolution, winning_data = resolve(entity_type, existing, payload)
