@@ -73,14 +73,14 @@ export default function ReportsPage() {
     : 0;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Portfolio Report</h1>
         <p className="text-sm text-slate-500">Branch-wide portfolio health and performance metrics</p>
       </div>
 
       {/* Key metrics */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {[
           {
             label: 'Collection Rate',
@@ -125,7 +125,7 @@ export default function ReportsPage() {
       {/* PAR Gauges */}
       <div>
         <h2 className="text-sm font-semibold text-slate-700 mb-3">Portfolio at Risk (PAR) Breakdown</h2>
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           <PARGauge rate={s.par.par_1_rate} label="PAR 1+ days" threshold={10} />
           <PARGauge rate={s.par.par_30_rate} label="PAR 30+ days" threshold={5} />
           <PARGauge rate={s.par.par_60_rate} label="PAR 60+ days" threshold={3} />
@@ -175,7 +175,7 @@ export default function ReportsPage() {
       {/* Loan applications pipeline */}
       <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-700 mb-4">Application Pipeline</h2>
-        <div className="grid grid-cols-5 gap-0 relative">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-0">
           {[
             { label: 'Draft', count: s.loan_applications.draft, color: 'bg-slate-200 text-slate-700' },
             { label: 'Submitted', count: s.loan_applications.submitted, color: 'bg-yellow-100 text-yellow-800' },

@@ -49,14 +49,14 @@ export default function DashboardPage() {
   ].filter((d) => d.value > 0);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       <div>
         <h1 className="text-xl font-bold text-slate-900">Portfolio Dashboard</h1>
         <p className="text-sm text-slate-500 mt-0.5">Real-time microfinance portfolio overview</p>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           label="Active Clients"
           value={s.active_clients.toLocaleString()}
@@ -90,16 +90,16 @@ export default function DashboardPage() {
       {/* Charts row */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         {/* PAR bar chart */}
-        <div className="xl:col-span-2 bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+        <div className="xl:col-span-2 bg-white rounded-xl border border-slate-100 p-4 sm:p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Portfolio at Risk (PAR)</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={parData} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={parData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis
                 tickFormatter={(v) => fmt.currency(v).replace('$', '$').split('.')[0]}
-                tick={{ fontSize: 11 }}
-                width={72}
+                tick={{ fontSize: 10 }}
+                width={64}
               />
               <Tooltip
                 formatter={(v: number) => [fmt.currency(v), 'Outstanding']}
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-4 gap-2 mt-4 pt-4 border-t border-slate-50">
             {parData.map((d, i) => (
               <div key={d.name} className="text-center">
-                <div className="text-lg font-bold" style={{ color: PAR_COLORS[i] }}>
+                <div className="text-base sm:text-lg font-bold" style={{ color: PAR_COLORS[i] }}>
                   {fmt.pct(d.rate)}
                 </div>
                 <div className="text-xs text-slate-500">{d.name}</div>
@@ -125,7 +125,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Application status pie */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-100 p-4 sm:p-5 shadow-sm">
           <h2 className="text-sm font-semibold text-slate-700 mb-4">Loan Applications</h2>
           {appStatusData.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
@@ -160,29 +160,29 @@ export default function DashboardPage() {
       </div>
 
       {/* Portfolio KPIs */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-slate-100 p-4 sm:p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <TrendingDown className="w-4 h-4 text-slate-400" />
             <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">Total Disbursed</span>
           </div>
           <p className="text-xl font-bold text-slate-900">{fmt.currency(s.active_loans.total_disbursed)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-100 p-4 sm:p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <CreditCard className="w-4 h-4 text-slate-400" />
             <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">Total Repaid</span>
           </div>
           <p className="text-xl font-bold text-slate-900">{fmt.currency(s.active_loans.total_repaid)}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-100 p-4 sm:p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <Users className="w-4 h-4 text-slate-400" />
             <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">Groups</span>
           </div>
           <p className="text-xl font-bold text-slate-900">{s.total_groups}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-100 p-5 shadow-sm">
+        <div className="bg-white rounded-xl border border-slate-100 p-4 sm:p-5 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-4 h-4 text-slate-400" />
             <span className="text-xs text-slate-500 font-medium uppercase tracking-wide">Pending Review</span>
@@ -192,8 +192,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Pending applications */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-50">
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b border-slate-50">
           <h2 className="text-sm font-semibold text-slate-700">Pending Loan Applications</h2>
           <Link href="/loans" className="text-xs text-blue-600 hover:underline">View all</Link>
         </div>
@@ -202,30 +202,32 @@ export default function DashboardPage() {
         ) : appsData?.results.length === 0 ? (
           <div className="p-8 text-center text-slate-400 text-sm">No pending applications</div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-header">Client</th>
-                <th className="table-header">Product</th>
-                <th className="table-header">Amount</th>
-                <th className="table-header">Applied</th>
-                <th className="table-header">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {appsData?.results.map((app) => (
-                <tr key={app.id} className="hover:bg-slate-50">
-                  <td className="table-cell font-medium">{app.client_name}</td>
-                  <td className="table-cell text-slate-500">{app.product_name}</td>
-                  <td className="table-cell font-medium">{fmt.currency(app.amount_requested)}</td>
-                  <td className="table-cell text-slate-500">{fmt.date(app.applied_at)}</td>
-                  <td className="table-cell">
-                    <Badge variant={statusBadge(app.status)}>{app.status}</Badge>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px]">
+              <thead>
+                <tr>
+                  <th className="table-header">Client</th>
+                  <th className="table-header">Product</th>
+                  <th className="table-header">Amount</th>
+                  <th className="table-header">Applied</th>
+                  <th className="table-header">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {appsData?.results.map((app) => (
+                  <tr key={app.id} className="hover:bg-slate-50">
+                    <td className="table-cell font-medium">{app.client_name}</td>
+                    <td className="table-cell text-slate-500">{app.product_name}</td>
+                    <td className="table-cell font-medium">{fmt.currency(app.amount_requested)}</td>
+                    <td className="table-cell text-slate-500">{fmt.date(app.applied_at)}</td>
+                    <td className="table-cell">
+                      <Badge variant={statusBadge(app.status)}>{app.status}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

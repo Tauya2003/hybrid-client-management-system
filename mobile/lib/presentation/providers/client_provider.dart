@@ -48,8 +48,15 @@ class ClientActions {
     String nextOfKinPhone = '',
     String? photoPath,
   }) async {
-    if (_userId.isEmpty || _branchId.isEmpty) {
-      throw StateError('Cannot create client while user profile is incomplete. Please log out and log in again.');
+    if (_userId.isEmpty) {
+      throw StateError(
+        'Your session is missing user details. Please log out and log in again.',
+      );
+    }
+    if (_branchId.isEmpty) {
+      throw StateError(
+        'Your account is not assigned to a branch. Please contact your admin.',
+      );
     }
 
     final id = _uuid.v4();

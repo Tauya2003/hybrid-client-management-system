@@ -84,7 +84,18 @@ class SyncEngine {
     final pending = await _db.syncQueueDao.getPendingItems();
     if (pending.isEmpty) return const SyncResult(pushed: 0, conflicts: 0, errors: 0);
 
-    final sortedPending = [...pending]..sort((a, b) {
+    final filtered = await _filterInvalidPendingItems(pending);
+    final sortablePending = filtered.validItems;
+    if (sortablePending.isEmpty) {
+      return SyncResult(
+        pushed: 0,
+        conflicts: 0,
+        errors: filtered.preflightErrors,
+        message: filtered.firstErrorMessage,
+      );
+    }
+
+    final sortedPending = [...sortablePending]..sort((a, b) {
       final byType = _entityPushPriority(a.entityType).compareTo(_entityPushPriority(b.entityType));
       if (byType != 0) return byType;
       final byTime = a.createdAt.compareTo(b.createdAt);
@@ -138,18 +149,64 @@ class SyncEngine {
 
       final firstError = errors.isNotEmpty
           ? (errors.first['error'] as String? ?? 'Unknown server error')
-          : null;
+          : filtered.firstErrorMessage;
 
       return SyncResult(
         pushed: processed.length,
         conflicts: conflicts.length,
-        errors: errors.length,
+        errors: errors.length + filtered.preflightErrors,
         message: firstError,
       );
     } on DioException catch (e) {
       // Network error — leave items as pending for next sync
       return SyncResult(pushed: 0, conflicts: 0, errors: 1, message: e.message);
     }
+  }
+
+  Future<_PendingFilterResult> _filterInvalidPendingItems(
+    List<SyncQueueTableData> pending,
+  ) async {
+    final validItems = <SyncQueueTableData>[];
+    int preflightErrors = 0;
+    String? firstErrorMessage;
+
+    for (final item in pending) {
+      if (item.entityType == 'loan_application' && item.operation == 'create') {
+        final payload = jsonDecode(item.payload) as Map<String, dynamic>;
+        final clientId = payload['client_id']?.toString();
+        if (clientId == null || clientId.isEmpty) {
+          const message = 'Loan application has no client_id. Please recreate it.';
+          await _db.syncQueueDao.markError(item.id, message);
+          firstErrorMessage ??= message;
+          preflightErrors++;
+          continue;
+        }
+
+        final client = await _db.clientsDao.getClientById(clientId);
+        final hasClientInQueue = await _db.syncQueueDao.hasActiveItemForEntity(
+          'client',
+          clientId,
+        );
+
+        if (client == null && !hasClientInQueue) {
+          const message =
+              'Skipped loan application because its client is missing locally. '
+              'Recreate the client and application.';
+          await _db.syncQueueDao.markError(item.id, message);
+          firstErrorMessage ??= message;
+          preflightErrors++;
+          continue;
+        }
+      }
+
+      validItems.add(item);
+    }
+
+    return _PendingFilterResult(
+      validItems: validItems,
+      preflightErrors: preflightErrors,
+      firstErrorMessage: firstErrorMessage,
+    );
   }
 
   int _entityPushPriority(String entityType) {
@@ -240,14 +297,14 @@ class SyncEngine {
 
   LoanProductsTableCompanion _loanProductCompanionFromJson(Map<String, dynamic> d) {
     return LoanProductsTableCompanion(
-      id: Value(d['id'] as String),
-      name: Value(d['name'] as String),
-      description: Value(d['description'] as String? ?? ''),
+      id: Value(_stringValue(d, 'id')),
+      name: Value(_stringValue(d, 'name')),
+      description: Value(_stringValue(d, 'description', defaultValue: '')),
       minAmount: Value(double.parse(d['min_amount'].toString())),
       maxAmount: Value(double.parse(d['max_amount'].toString())),
       interestRate: Value(double.parse(d['interest_rate'].toString())),
-      interestType: Value(d['interest_type'] as String),
-      repaymentFrequency: Value(d['repayment_frequency'] as String),
+      interestType: Value(_stringValue(d, 'interest_type')),
+      repaymentFrequency: Value(_stringValue(d, 'repayment_frequency')),
       minTerm: Value(d['min_term'] as int),
       maxTerm: Value(d['max_term'] as int),
       processingFeeRate: Value(double.tryParse(d['processing_fee_rate']?.toString() ?? '') ?? 0.0),
@@ -258,22 +315,22 @@ class SyncEngine {
 
   ClientsTableCompanion _clientCompanionFromJson(Map<String, dynamic> d) {
     return ClientsTableCompanion(
-      id: Value(d['id'] as String),
-      nationalId: Value(d['national_id'] as String),
-      phoneNumber: Value(d['phone_number'] as String),
-      firstName: Value(d['first_name'] as String),
-      lastName: Value(d['last_name'] as String),
-      dateOfBirth: Value(d['date_of_birth'] as String),
-      gender: Value(d['gender'] as String),
-      address: Value(d['address'] as String),
-      nextOfKinName: Value(d['next_of_kin_name'] as String? ?? ''),
-      nextOfKinPhone: Value(d['next_of_kin_phone'] as String? ?? ''),
-      branchId: Value((d['branch'] ?? d['branch_id']) as String),
-      createdById: Value((d['created_by'] ?? d['created_by_id']) as String),
+      id: Value(_stringValue(d, 'id')),
+      nationalId: Value(_stringValue(d, 'national_id')),
+      phoneNumber: Value(_stringValue(d, 'phone_number')),
+      firstName: Value(_stringValue(d, 'first_name')),
+      lastName: Value(_stringValue(d, 'last_name')),
+      dateOfBirth: Value(_stringValue(d, 'date_of_birth')),
+      gender: Value(_stringValue(d, 'gender')),
+      address: Value(_stringValue(d, 'address')),
+      nextOfKinName: Value(_stringValue(d, 'next_of_kin_name', defaultValue: '')),
+      nextOfKinPhone: Value(_stringValue(d, 'next_of_kin_phone', defaultValue: '')),
+      branchId: Value(_firstStringValue(d, ['branch', 'branch_id'])),
+      createdById: Value(_firstStringValue(d, ['created_by', 'created_by_id'])),
       isActive: Value(d['is_active'] as bool? ?? true),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
@@ -281,18 +338,18 @@ class SyncEngine {
 
   GroupsTableCompanion _groupCompanionFromJson(Map<String, dynamic> d) {
     return GroupsTableCompanion(
-      id: Value(d['id'] as String),
-      name: Value(d['name'] as String),
-      groupType: Value(d['group_type'] as String),
-      branchId: Value((d['branch'] ?? d['branch_id']) as String),
-      loanOfficerId: Value((d['loan_officer'] ?? d['loan_officer_id']) as String),
-      meetingDay: Value(d['meeting_day'] as String? ?? ''),
-      meetingFrequency: Value(d['meeting_frequency'] as String? ?? ''),
-      meetingLocation: Value(d['meeting_location'] as String? ?? ''),
+      id: Value(_stringValue(d, 'id')),
+      name: Value(_stringValue(d, 'name')),
+      groupType: Value(_stringValue(d, 'group_type')),
+      branchId: Value(_firstStringValue(d, ['branch', 'branch_id'])),
+      loanOfficerId: Value(_firstStringValue(d, ['loan_officer', 'loan_officer_id'])),
+      meetingDay: Value(_stringValue(d, 'meeting_day', defaultValue: '')),
+      meetingFrequency: Value(_stringValue(d, 'meeting_frequency', defaultValue: '')),
+      meetingLocation: Value(_stringValue(d, 'meeting_location', defaultValue: '')),
       isActive: Value(d['is_active'] as bool? ?? true),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
@@ -300,14 +357,14 @@ class SyncEngine {
 
   GroupMembershipsTableCompanion _membershipCompanionFromJson(Map<String, dynamic> d) {
     return GroupMembershipsTableCompanion(
-      id: Value(d['id'] as String),
-      groupId: Value((d['group'] ?? d['group_id']) as String),
-      clientId: Value((d['client'] ?? d['client_id']) as String),
-      role: Value(d['role'] as String? ?? 'member'),
-      joinedAt: Value(d['joined_at'] as String),
+      id: Value(_stringValue(d, 'id')),
+      groupId: Value(_firstStringValue(d, ['group', 'group_id'])),
+      clientId: Value(_firstStringValue(d, ['client', 'client_id'])),
+      role: Value(_stringValue(d, 'role', defaultValue: 'member')),
+      joinedAt: Value(_stringValue(d, 'joined_at')),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
@@ -315,21 +372,21 @@ class SyncEngine {
 
   LoanApplicationsTableCompanion _applicationCompanionFromJson(Map<String, dynamic> d) {
     return LoanApplicationsTableCompanion(
-      id: Value(d['id'] as String),
-      clientId: Value((d['client'] ?? d['client_id']) as String),
-      groupId: Value((d['group'] ?? d['group_id']) as String?),
-      loanProductId: Value((d['loan_product'] ?? d['loan_product_id']) as String),
-      loanProductName: Value(d['product_name'] as String? ?? ''),
+      id: Value(_stringValue(d, 'id')),
+      clientId: Value(_firstStringValue(d, ['client', 'client_id'])),
+      groupId: Value(_nullableFirstStringValue(d, ['group', 'group_id'])),
+      loanProductId: Value(_firstStringValue(d, ['loan_product', 'loan_product_id'])),
+      loanProductName: Value(_stringValue(d, 'product_name', defaultValue: '')),
       amountRequested: Value(double.parse(d['amount_requested'].toString())),
       term: Value(d['term'] as int),
-      purpose: Value(d['purpose'] as String),
-      status: Value(d['status'] as String),
-      appliedById: Value((d['applied_by'] ?? d['applied_by_id']) as String),
-      appliedAt: Value(d['applied_at'] as String),
-      notes: Value(d['notes'] as String? ?? ''),
+      purpose: Value(_stringValue(d, 'purpose')),
+      status: Value(_stringValue(d, 'status', defaultValue: 'draft')),
+      appliedById: Value(_firstStringValue(d, ['applied_by', 'applied_by_id'])),
+      appliedAt: Value(_stringValue(d, 'applied_at')),
+      notes: Value(_stringValue(d, 'notes', defaultValue: '')),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
@@ -337,17 +394,17 @@ class SyncEngine {
 
   RepaymentsTableCompanion _repaymentCompanionFromJson(Map<String, dynamic> d) {
     return RepaymentsTableCompanion(
-      id: Value(d['id'] as String),
-      loanId: Value((d['loan'] ?? d['loan_id']) as String),
+      id: Value(_stringValue(d, 'id')),
+      loanId: Value(_firstStringValue(d, ['loan', 'loan_id'])),
       amount: Value(double.parse(d['amount'].toString())),
-      paymentDate: Value(d['payment_date'] as String),
-      paymentMethod: Value(d['payment_method'] as String? ?? 'cash'),
-      referenceNumber: Value(d['reference_number'] as String? ?? ''),
-      receivedById: Value((d['received_by'] ?? d['received_by_id']) as String),
-      notes: Value(d['notes'] as String? ?? ''),
+      paymentDate: Value(_stringValue(d, 'payment_date')),
+      paymentMethod: Value(_stringValue(d, 'payment_method', defaultValue: 'cash')),
+      referenceNumber: Value(_stringValue(d, 'reference_number', defaultValue: '')),
+      receivedById: Value(_firstStringValue(d, ['received_by', 'received_by_id'])),
+      notes: Value(_stringValue(d, 'notes', defaultValue: '')),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
@@ -355,16 +412,16 @@ class SyncEngine {
 
   SavingsAccountsTableCompanion _savingsAccountCompanionFromJson(Map<String, dynamic> d) {
     return SavingsAccountsTableCompanion(
-      id: Value(d['id'] as String),
-      clientId: Value((d['client'] ?? d['client_id']) as String),
-      accountNumber: Value(d['account_number'] as String),
-      accountType: Value(d['account_type'] as String? ?? 'voluntary'),
+      id: Value(_stringValue(d, 'id')),
+      clientId: Value(_firstStringValue(d, ['client', 'client_id'])),
+      accountNumber: Value(_stringValue(d, 'account_number')),
+      accountType: Value(_stringValue(d, 'account_type', defaultValue: 'voluntary')),
       balance: Value(double.parse(d['balance'].toString())),
       minimumBalance: Value(double.tryParse(d['minimum_balance']?.toString() ?? '') ?? 0),
       isActive: Value(d['is_active'] as bool? ?? true),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
@@ -372,21 +429,47 @@ class SyncEngine {
 
   SavingsTransactionsTableCompanion _savingsTxnCompanionFromJson(Map<String, dynamic> d) {
     return SavingsTransactionsTableCompanion(
-      id: Value(d['id'] as String),
-      savingsAccountId: Value((d['savings_account'] ?? d['savings_account_id']) as String),
-      transactionType: Value(d['transaction_type'] as String),
+      id: Value(_stringValue(d, 'id')),
+      savingsAccountId: Value(_firstStringValue(d, ['savings_account', 'savings_account_id'])),
+      transactionType: Value(_stringValue(d, 'transaction_type')),
       amount: Value(double.parse(d['amount'].toString())),
       balanceAfter: Value(double.parse(d['balance_after'].toString())),
-      transactionDate: Value(d['transaction_date'] as String),
-      performedById: Value((d['performed_by'] ?? d['performed_by_id']) as String),
-      referenceNumber: Value(d['reference_number'] as String? ?? ''),
-      notes: Value(d['notes'] as String? ?? ''),
+      transactionDate: Value(_stringValue(d, 'transaction_date')),
+      performedById: Value(_firstStringValue(d, ['performed_by', 'performed_by_id'])),
+      referenceNumber: Value(_stringValue(d, 'reference_number', defaultValue: '')),
+      notes: Value(_stringValue(d, 'notes', defaultValue: '')),
       syncStatus: const Value('synced'),
-      createdAt: Value(d['created_at'] as String),
-      updatedAt: Value(d['updated_at'] as String),
+      createdAt: Value(_stringValue(d, 'created_at')),
+      updatedAt: Value(_stringValue(d, 'updated_at')),
       version: Value(d['version'] as int? ?? 1),
       isDeleted: Value(d['is_deleted'] as bool? ?? false),
     );
+  }
+
+  String _stringValue(
+    Map<String, dynamic> d,
+    String key, {
+    String defaultValue = '',
+  }) {
+    final value = d[key];
+    if (value == null) return defaultValue;
+    return value.toString();
+  }
+
+  String _firstStringValue(Map<String, dynamic> d, List<String> keys) {
+    for (final key in keys) {
+      final value = d[key];
+      if (value != null) return value.toString();
+    }
+    return '';
+  }
+
+  String? _nullableFirstStringValue(Map<String, dynamic> d, List<String> keys) {
+    for (final key in keys) {
+      final value = d[key];
+      if (value != null) return value.toString();
+    }
+    return null;
   }
 
   void dispose() {
@@ -405,5 +488,17 @@ class SyncResult {
     required this.conflicts,
     required this.errors,
     this.message,
+  });
+}
+
+class _PendingFilterResult {
+  final List<SyncQueueTableData> validItems;
+  final int preflightErrors;
+  final String? firstErrorMessage;
+
+  const _PendingFilterResult({
+    required this.validItems,
+    required this.preflightErrors,
+    required this.firstErrorMessage,
   });
 }

@@ -40,13 +40,27 @@ export default function LoanProductsPage() {
   function validate() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Product name is required';
-    if (!form.min_amount || isNaN(Number(form.min_amount))) e.min_amount = 'Enter a valid minimum amount';
-    if (!form.max_amount || isNaN(Number(form.max_amount))) e.max_amount = 'Enter a valid maximum amount';
-    if (Number(form.min_amount) >= Number(form.max_amount)) e.max_amount = 'Max must be greater than min';
-    if (!form.interest_rate || isNaN(Number(form.interest_rate))) e.interest_rate = 'Enter a valid interest rate';
-    if (!form.min_term || isNaN(Number(form.min_term))) e.min_term = 'Enter a valid minimum term';
-    if (!form.max_term || isNaN(Number(form.max_term))) e.max_term = 'Enter a valid maximum term';
-    if (Number(form.min_term) > Number(form.max_term)) e.max_term = 'Max term must be >= min term';
+
+    const minAmt = Number(form.min_amount);
+    const maxAmt = Number(form.max_amount);
+    if (!form.min_amount || isNaN(minAmt) || minAmt <= 0) e.min_amount = 'Enter a positive amount';
+    if (!form.max_amount || isNaN(maxAmt) || maxAmt <= 0) e.max_amount = 'Enter a positive amount';
+    if (!e.min_amount && !e.max_amount && minAmt >= maxAmt) e.max_amount = 'Max must be greater than min';
+
+    const rate = Number(form.interest_rate);
+    if (form.interest_rate === '' || isNaN(rate) || rate < 0) e.interest_rate = 'Enter a valid rate (0 or greater)';
+
+    const minTerm = Number(form.min_term);
+    const maxTerm = Number(form.max_term);
+    if (!form.min_term || isNaN(minTerm) || minTerm < 1 || !Number.isInteger(minTerm)) e.min_term = 'Enter a whole number ≥ 1';
+    if (!form.max_term || isNaN(maxTerm) || maxTerm < 1 || !Number.isInteger(maxTerm)) e.max_term = 'Enter a whole number ≥ 1';
+    if (!e.min_term && !e.max_term && minTerm > maxTerm) e.max_term = 'Max term must be ≥ min term';
+
+    const fee = Number(form.processing_fee_rate);
+    if (form.processing_fee_rate !== '' && (isNaN(fee) || fee < 0)) e.processing_fee_rate = 'Must be 0 or greater';
+    const penalty = Number(form.late_penalty_rate);
+    if (form.late_penalty_rate !== '' && (isNaN(penalty) || penalty < 0)) e.late_penalty_rate = 'Must be 0 or greater';
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -95,7 +109,7 @@ export default function LoanProductsPage() {
   const products = data?.results ?? [];
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Loan Products</h1>
@@ -182,7 +196,7 @@ export default function LoanProductsPage() {
             <textarea className="input resize-none" rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Optional description" />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Min Amount (USD)" error={errors.min_amount} required>
               <input className="input" type="number" min="0" step="0.01" value={form.min_amount} onChange={(e) => set('min_amount', e.target.value)} placeholder="500" />
             </FormField>
@@ -191,7 +205,7 @@ export default function LoanProductsPage() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Interest Rate (% p.a.)" error={errors.interest_rate} required>
               <input className="input" type="number" min="0" step="0.01" value={form.interest_rate} onChange={(e) => set('interest_rate', e.target.value)} placeholder="24" />
             </FormField>
@@ -203,7 +217,7 @@ export default function LoanProductsPage() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Min Term (periods)" error={errors.min_term} required>
               <input className="input" type="number" min="1" value={form.min_term} onChange={(e) => set('min_term', e.target.value)} placeholder="3" />
             </FormField>
@@ -220,11 +234,11 @@ export default function LoanProductsPage() {
             </select>
           </FormField>
 
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Processing Fee (%)">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField label="Processing Fee (%)" error={errors.processing_fee_rate}>
               <input className="input" type="number" min="0" step="0.01" value={form.processing_fee_rate} onChange={(e) => set('processing_fee_rate', e.target.value)} />
             </FormField>
-            <FormField label="Late Penalty (% per period)">
+            <FormField label="Late Penalty (% per period)" error={errors.late_penalty_rate}>
               <input className="input" type="number" min="0" step="0.01" value={form.late_penalty_rate} onChange={(e) => set('late_penalty_rate', e.target.value)} />
             </FormField>
           </div>

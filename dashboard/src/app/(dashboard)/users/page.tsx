@@ -65,10 +65,38 @@ export default function UsersPage() {
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!form.username.trim()) e.username = 'Username is required';
-    if (!form.password || form.password.length < 8) e.password = 'Password must be at least 8 characters';
-    if (!form.first_name.trim()) e.first_name = 'First name is required';
-    if (!form.last_name.trim()) e.last_name = 'Last name is required';
+
+    if (!form.username.trim()) {
+      e.username = 'Username is required';
+    } else if (!/^[a-zA-Z0-9_]+$/.test(form.username)) {
+      e.username = 'Only letters, numbers and underscores allowed';
+    }
+
+    if (!form.password || form.password.length < 8) {
+      e.password = 'Password must be at least 8 characters';
+    }
+
+    if (!form.first_name.trim()) {
+      e.first_name = 'First name is required';
+    } else if (!/^[a-zA-Z\s\-']+$/.test(form.first_name.trim())) {
+      e.first_name = 'First name must contain letters only';
+    }
+
+    if (!form.last_name.trim()) {
+      e.last_name = 'Last name is required';
+    } else if (!/^[a-zA-Z\s\-']+$/.test(form.last_name.trim())) {
+      e.last_name = 'Last name must contain letters only';
+    }
+
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      e.email = 'Enter a valid email address';
+    }
+
+    if (form.phone_number) {
+      const digits = form.phone_number.replace(/[\s\-+()]/g, '');
+      if (!/^\d{7,15}$/.test(digits)) e.phone_number = 'Enter a valid phone number (7–15 digits)';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -112,7 +140,7 @@ export default function UsersPage() {
   const users = data?.results ?? [];
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Users</h1>
@@ -138,40 +166,42 @@ export default function UsersPage() {
             )}
           </div>
         ) : (
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className="table-header">Name</th>
-                <th className="table-header">Username</th>
-                <th className="table-header">Role</th>
-                <th className="table-header">Branch</th>
-                <th className="table-header">Phone</th>
-                <th className="table-header">Joined</th>
-                <th className="table-header">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {users.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50">
-                  <td className="table-cell font-medium">{u.full_name}</td>
-                  <td className="table-cell text-slate-500 font-mono text-xs">{u.username}</td>
-                  <td className="table-cell">
-                    <Badge variant={ROLE_COLORS[u.role] ?? 'gray'}>
-                      {u.role.replace('_', ' ')}
-                    </Badge>
-                  </td>
-                  <td className="table-cell text-slate-600">{u.branch?.name ?? '—'}</td>
-                  <td className="table-cell text-slate-600">{u.phone_number || '—'}</td>
-                  <td className="table-cell text-slate-500">{fmt.date(u.date_joined)}</td>
-                  <td className="table-cell">
-                    <Badge variant={u.is_active ? 'green' : 'gray'}>
-                      {u.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px]">
+              <thead>
+                <tr>
+                  <th className="table-header">Name</th>
+                  <th className="table-header">Username</th>
+                  <th className="table-header">Role</th>
+                  <th className="table-header">Branch</th>
+                  <th className="table-header">Phone</th>
+                  <th className="table-header">Joined</th>
+                  <th className="table-header">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {users.map((u) => (
+                  <tr key={u.id} className="hover:bg-slate-50">
+                    <td className="table-cell font-medium">{u.full_name}</td>
+                    <td className="table-cell text-slate-500 font-mono text-xs">{u.username}</td>
+                    <td className="table-cell">
+                      <Badge variant={ROLE_COLORS[u.role] ?? 'gray'}>
+                        {u.role.replace('_', ' ')}
+                      </Badge>
+                    </td>
+                    <td className="table-cell text-slate-600">{u.branch?.name ?? '—'}</td>
+                    <td className="table-cell text-slate-600">{u.phone_number || '—'}</td>
+                    <td className="table-cell text-slate-500">{fmt.date(u.date_joined)}</td>
+                    <td className="table-cell">
+                      <Badge variant={u.is_active ? 'green' : 'gray'}>
+                        {u.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
@@ -183,7 +213,7 @@ export default function UsersPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="First Name" error={errors.first_name} required>
               <input className="input" value={form.first_name} onChange={(e) => set('first_name', e.target.value)} />
             </FormField>
@@ -192,7 +222,7 @@ export default function UsersPage() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Username" error={errors.username} required>
               <input className="input" value={form.username} onChange={(e) => set('username', e.target.value)} autoComplete="off" />
             </FormField>
@@ -201,11 +231,11 @@ export default function UsersPage() {
             </FormField>
           </div>
 
-          <FormField label="Email">
+          <FormField label="Email" error={errors.email}>
             <input className="input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField label="Role" required>
               <select className="input" value={form.role} onChange={(e) => set('role', e.target.value)}>
                 {ROLES.map((r) => (
@@ -223,8 +253,8 @@ export default function UsersPage() {
             </FormField>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Phone Number">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField label="Phone Number" error={errors.phone_number}>
               <input className="input" value={form.phone_number} onChange={(e) => set('phone_number', e.target.value)} placeholder="+263 77 000 0000" />
             </FormField>
             <FormField label="Employee ID">

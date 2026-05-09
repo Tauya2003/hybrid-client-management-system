@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -240,6 +241,7 @@ class _LoanApplicationFormScreenState
                     controller: _amountCtrl,
                     keyboardType: const TextInputType.numberWithOptions(
                         decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                     decoration: const InputDecoration(
                       labelText: 'Amount *',
                       prefixIcon: Icon(Icons.attach_money),
@@ -266,6 +268,7 @@ class _LoanApplicationFormScreenState
                   child: TextFormField(
                     controller: _termCtrl,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       labelText: 'No. of Repayments *',
                       hintText: _selectedProduct != null

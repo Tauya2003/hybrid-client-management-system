@@ -32,9 +32,30 @@ export default function BranchesPage() {
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = 'Branch name is required';
-    if (!form.code.trim()) e.code = 'Branch code is required';
+
+    if (!form.name.trim()) {
+      e.name = 'Branch name is required';
+    } else if (form.name.trim().length < 2) {
+      e.name = 'Must be at least 2 characters';
+    }
+
+    if (!form.code.trim()) {
+      e.code = 'Branch code is required';
+    } else if (!/^[A-Z0-9\-]+$/.test(form.code.trim())) {
+      e.code = 'Use uppercase letters, numbers and hyphens only (e.g. HRE-001)';
+    }
+
     if (!form.address.trim()) e.address = 'Address is required';
+
+    if (form.phone) {
+      const digits = form.phone.replace(/[\s\-+()]/g, '');
+      if (!/^\d{7,15}$/.test(digits)) e.phone = 'Enter a valid phone number (7–15 digits)';
+    }
+
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      e.email = 'Enter a valid email address';
+    }
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -65,7 +86,7 @@ export default function BranchesPage() {
   const branches = data?.results ?? [];
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900">Branches</h1>
@@ -131,11 +152,11 @@ export default function BranchesPage() {
             <textarea className="input resize-none" rows={2} value={form.address} onChange={(e) => set('address', e.target.value)} placeholder="Physical address" />
           </FormField>
 
-          <div className="grid grid-cols-2 gap-3">
-            <FormField label="Phone">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField label="Phone" error={errors.phone}>
               <input className="input" value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+263 77 000 0000" />
             </FormField>
-            <FormField label="Email">
+            <FormField label="Email" error={errors.email}>
               <input className="input" type="email" value={form.email} onChange={(e) => set('email', e.target.value)} placeholder="branch@mfi.com" />
             </FormField>
           </div>

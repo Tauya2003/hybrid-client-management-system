@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -24,6 +25,9 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
   String _gender = 'M';
   DateTime? _dob;
   bool _saving = false;
+
+  static final _nameFormatter = FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\s\-']"));
+  static final _phoneFormatter = FilteringTextInputFormatter.allow(RegExp(r'[0-9+\-\s]'));
 
   @override
   void dispose() {
@@ -92,6 +96,31 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     }
   }
 
+  String? _validateName(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Required';
+    if (v.trim().length < 2) return 'Must be at least 2 characters';
+    if (RegExp(r'[0-9]').hasMatch(v)) return 'Must not contain numbers';
+    return null;
+  }
+
+  String? _validatePhone(String? v, {bool required = true}) {
+    if (v == null || v.trim().isEmpty) {
+      return required ? 'Required' : null;
+    }
+    final digits = v.replaceAll(RegExp(r'[\s\-+]'), '');
+    if (!RegExp(r'^\d{7,15}$').hasMatch(digits)) {
+      return 'Enter a valid phone number (7–15 digits)';
+    }
+    return null;
+  }
+
+  String? _validateNationalId(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Required';
+    if (v.trim().length < 4) return 'Must be at least 4 characters';
+    if (v.contains(' ')) return 'Must not contain spaces';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,16 +132,28 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
           children: [
             const _SectionHeader('Personal Information'),
             const SizedBox(height: 12),
-            _buildField(_firstNameCtrl, 'First Name', Icons.person, required: true),
+            _buildField(
+              _firstNameCtrl, 'First Name', Icons.person,
+              inputFormatters: [_nameFormatter],
+              validator: _validateName,
+            ),
             const SizedBox(height: 12),
-            _buildField(_lastNameCtrl, 'Last Name', Icons.person, required: true),
+            _buildField(
+              _lastNameCtrl, 'Last Name', Icons.person,
+              inputFormatters: [_nameFormatter],
+              validator: _validateName,
+            ),
             const SizedBox(height: 12),
-            _buildField(_nationalIdCtrl, 'National ID Number', Icons.badge, required: true),
+            _buildField(
+              _nationalIdCtrl, 'National ID Number', Icons.badge,
+              validator: _validateNationalId,
+            ),
             const SizedBox(height: 12),
             _buildField(
               _phoneCtrl, 'Phone Number', Icons.phone,
-              required: true,
               keyboardType: TextInputType.phone,
+              inputFormatters: [_phoneFormatter],
+              validator: (v) => _validatePhone(v, required: true),
             ),
             const SizedBox(height: 12),
 
@@ -153,9 +194,23 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
             const SizedBox(height: 20),
             const _SectionHeader('Next of Kin (Optional)'),
             const SizedBox(height: 12),
-            _buildField(_kinNameCtrl, 'Next of Kin Name', Icons.contacts),
+            _buildField(
+              _kinNameCtrl, 'Next of Kin Name', Icons.contacts,
+              inputFormatters: [_nameFormatter],
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return null;
+                if (v.trim().length < 2) return 'Must be at least 2 characters';
+                if (RegExp(r'[0-9]').hasMatch(v)) return 'Must not contain numbers';
+                return null;
+              },
+            ),
             const SizedBox(height: 12),
-            _buildField(_kinPhoneCtrl, 'Next of Kin Phone', Icons.phone, keyboardType: TextInputType.phone),
+            _buildField(
+              _kinPhoneCtrl, 'Next of Kin Phone', Icons.phone,
+              keyboardType: TextInputType.phone,
+              inputFormatters: [_phoneFormatter],
+              validator: (v) => _validatePhone(v, required: false),
+            ),
 
             const SizedBox(height: 32),
             FilledButton.icon(
@@ -181,17 +236,20 @@ class _ClientFormScreenState extends ConsumerState<ClientFormScreen> {
     bool required = false,
     TextInputType? keyboardType,
     int maxLines = 1,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: ctrl,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
-        labelText: required ? '$label *' : label,
+        labelText: validator != null || required ? '$label *' : label,
         prefixIcon: Icon(icon),
         border: const OutlineInputBorder(),
       ),
-      validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null : null,
+      validator: validator ?? (required ? (v) => (v == null || v.trim().isEmpty) ? 'Required' : null : null),
     );
   }
 }

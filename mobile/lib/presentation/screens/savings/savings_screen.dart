@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -202,33 +203,44 @@ class SavingsDetailScreen extends ConsumerWidget {
 
   void _showTransactionDialog(BuildContext context, WidgetRef ref, String type) {
     final ctrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(type == 'deposit' ? 'Record Deposit' : 'Record Withdrawal'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Amount',
-            prefixText: '\$',
-            border: OutlineInputBorder(),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: ctrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+            decoration: const InputDecoration(
+              labelText: 'Amount',
+              prefixText: r'$',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Amount is required';
+              final amount = double.tryParse(v);
+              if (amount == null) return 'Enter a valid number';
+              if (amount <= 0) return 'Amount must be greater than zero';
+              return null;
+            },
           ),
-          autofocus: true,
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(
             onPressed: () async {
-              final amount = double.tryParse(ctrl.text);
-              if (amount == null || amount <= 0) return;
+              if (!formKey.currentState!.validate()) return;
+              final amount = double.parse(ctrl.text);
               Navigator.pop(ctx);
-              // For withdrawal, we'd need the current balance — simplified here
               await ref.read(savingsActionsProvider).recordTransaction(
                     accountId: accountId,
                     transactionType: type,
                     amount: amount,
-                    currentBalance: 0, // Would be fetched from account in a full impl
+                    currentBalance: 0,
                     transactionDate: DateTime.now().toIso8601String().split('T').first,
                   );
               if (context.mounted) {

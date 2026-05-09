@@ -32,8 +32,8 @@ class AppUser {
       firstName: json['first_name'] as String? ?? '',
       lastName: json['last_name'] as String? ?? '',
       role: json['role'] as String,
-      branchId: branch?['id'] as String?,
-      branchName: branch?['name'] as String?,
+      branchId: (branch?['id'] ?? json['branch_id']) as String?,
+      branchName: (branch?['name'] ?? json['branch_name']) as String?,
       phoneNumber: json['phone_number'] as String? ?? '',
     );
   }
