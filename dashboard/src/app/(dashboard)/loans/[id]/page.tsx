@@ -1,16 +1,33 @@
 'use client';
 
+import { useState } from 'react';
 import useSWR from 'swr';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Clock, AlertCircle, PlusCircle } from 'lucide-react';
 import { api, fmt } from '@/lib/api';
 import type { LoanDetail, Repayment } from '@/lib/types';
 import { Badge, statusBadge } from '@/components/ui/Badge';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
+import { Modal, FormField } from '@/components/ui/Modal';
+import { useAuth } from '@/contexts/AuthContext';
 import clsx from 'clsx';
 
 const fetcher = (url: string) => api.get(url).then((r) => r.data);
+
+const PAYMENT_METHODS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'mobile_money', label: 'Mobile Money' },
+  { value: 'bank_transfer', label: 'Bank Transfer' },
+];
+
+const emptyPayment = {
+  amount: '',
+  payment_date: new Date().toISOString().slice(0, 10),
+  payment_method: 'cash',
+  reference_number: '',
+  notes: '',
+};
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
@@ -29,9 +46,15 @@ function scheduleIcon(status: string) {
 
 export default function LoanDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
 
-  const { data: loan, isLoading } = useSWR<LoanDetail>(`/loans/${id}/`, fetcher);
-  const { data: repaymentsData } = useSWR<{ results: Repayment[] }>(`/repayments/?loan=${id}`, fetcher);
+  const { data: loan, isLoading, mutate: mutateLoan } = useSWR<LoanDetail>(`/loans/${id}/`, fetcher);
+  const { data: repaymentsData, mutate: mutateRepayments } = useSWR<{ results: Repayment[] }>(`/repayments/?loan=${id}`, fetcher);
+
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [form, setForm] = useState(emptyPayment);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   if (isLoading) return <PageLoader />;
   if (!loan) return <div className="p-6 text-slate-500">Loan not found.</div>;
@@ -42,6 +65,48 @@ export default function LoanDetailPage() {
   const repaidPct = loan.total_amount > 0
     ? Math.min(100, (loan.amount_paid / loan.total_amount) * 100)
     : 0;
+
+  const canRecordPayment =
+    user?.role !== 'auditor' &&
+    loan.status === 'active';
+
+  function openPayment() {
+    setForm(emptyPayment);
+    setError('');
+    setPaymentOpen(true);
+  }
+
+  async function submitPayment() {
+    if (!form.amount || Number(form.amount) <= 0) {
+      setError('Enter a valid payment amount.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await api.post('/repayments/', {
+        loan: id,
+        amount: form.amount,
+        payment_date: form.payment_date,
+        payment_method: form.payment_method,
+        reference_number: form.reference_number || undefined,
+        notes: form.notes || undefined,
+      });
+      setPaymentOpen(false);
+      mutateLoan();
+      mutateRepayments();
+    } catch (e: unknown) {
+      const err = e as { response?: { data?: Record<string, string[]> } };
+      const msgs = err.response?.data;
+      if (msgs) {
+        setError(Object.values(msgs).flat().join(' '));
+      } else {
+        setError('Failed to record payment. Please try again.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 max-w-4xl">
@@ -55,8 +120,17 @@ export default function LoanDetailPage() {
             {loan.client_name}
           </Link>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
           <Badge variant={statusBadge(loan.status)}>{loan.status}</Badge>
+          {canRecordPayment && (
+            <button
+              onClick={openPayment}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <PlusCircle className="w-4 h-4" />
+              Record Payment
+            </button>
+          )}
         </div>
       </div>
 
@@ -173,6 +247,84 @@ export default function LoanDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Record Payment Modal */}
+      <Modal title="Record Payment" open={paymentOpen} onClose={() => setPaymentOpen(false)}>
+        <div className="space-y-4">
+          <FormField label="Amount" required>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              className="input w-full"
+              placeholder="0.00"
+              value={form.amount}
+              onChange={(e) => setForm({ ...form, amount: e.target.value })}
+            />
+          </FormField>
+
+          <FormField label="Payment Date" required>
+            <input
+              type="date"
+              className="input w-full"
+              value={form.payment_date}
+              onChange={(e) => setForm({ ...form, payment_date: e.target.value })}
+            />
+          </FormField>
+
+          <FormField label="Payment Method" required>
+            <select
+              className="input w-full"
+              value={form.payment_method}
+              onChange={(e) => setForm({ ...form, payment_method: e.target.value })}
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="Reference Number">
+            <input
+              type="text"
+              className="input w-full"
+              placeholder="Optional transaction reference"
+              value={form.reference_number}
+              onChange={(e) => setForm({ ...form, reference_number: e.target.value })}
+            />
+          </FormField>
+
+          <FormField label="Notes">
+            <textarea
+              className="input w-full"
+              rows={2}
+              placeholder="Optional notes"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            />
+          </FormField>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setPaymentOpen(false)}
+              className="px-4 py-2 text-sm text-slate-600 hover:text-slate-900"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submitPayment}
+              disabled={saving}
+              className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+            >
+              {saving ? 'Saving…' : 'Record Payment'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
