@@ -218,7 +218,7 @@ export default function UsersPage() {
                     </td>
                     {isAdmin && (
                       <td className="table-cell">
-                        {u.id !== currentUser?.id && (
+                        {u.id !== currentUser?.user_id && (
                           <button
                             onClick={() => setDeleteId(u.id)}
                             title="Delete user"
