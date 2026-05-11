@@ -200,7 +200,7 @@ class LoanListView(generics.ListAPIView):
         user = self.request.user
         qs = Loan.objects.select_related('client', 'loan_product').filter(is_deleted=False)
         if user.role == 'field_officer':
-            qs = qs.filter(disbursed_by=user)
+            qs = qs.filter(application__applied_by=user)
         elif user.role == 'branch_manager':
             qs = qs.filter(client__branch=user.branch)
         return qs
@@ -278,7 +278,7 @@ def portfolio_summary(request):
         group_qs = group_qs.filter(branch=user.branch)
         savings_qs = savings_qs.filter(client__branch=user.branch)
     elif user.role == 'field_officer':
-        loan_qs = loan_qs.filter(disbursed_by=user)
+        loan_qs = loan_qs.filter(application__applied_by=user)
         app_qs = app_qs.filter(applied_by=user)
         client_qs = client_qs.filter(branch=user.branch)
         group_qs = group_qs.filter(branch=user.branch)
