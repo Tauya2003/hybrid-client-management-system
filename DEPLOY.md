@@ -261,6 +261,28 @@ pm2 monit                       # live CPU/memory dashboard
 
 ## Redeployment (after pushing code changes)
 
+### Using the deploy script (recommended)
+
+Copy `deploy.sh` to the server once, make it executable, then use it for every future update:
+
+```bash
+# First time only — copy script to server
+scp deploy.sh user@<VPS_IP>:/var/www/hcms/deploy.sh
+ssh user@<VPS_IP> "chmod +x /var/www/hcms/deploy.sh"
+```
+
+After that, every deployment is a single command:
+
+```bash
+# On your local machine — push code, then trigger deploy
+git push origin main
+ssh user@<VPS_IP> "/var/www/hcms/deploy.sh"            # deploy both
+ssh user@<VPS_IP> "/var/www/hcms/deploy.sh backend"    # backend only
+ssh user@<VPS_IP> "/var/www/hcms/deploy.sh dashboard"  # dashboard only
+```
+
+### Manual redeployment
+
 ### Backend update
 ```bash
 cd /var/www/hcms
