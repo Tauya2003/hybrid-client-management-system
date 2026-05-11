@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import useSWR from 'swr';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, Trash2 } from 'lucide-react';
 import { api, fmt } from '@/lib/api';
 import type { Branch } from '@/lib/types';
 import { Badge } from '@/components/ui/Badge';
@@ -54,6 +54,9 @@ export default function UsersPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState('');
+
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isAdmin = currentUser?.role === 'admin';
   const branches = branchData?.results ?? [];
@@ -136,8 +139,23 @@ export default function UsersPage() {
     setServerError('');
   }
 
+  async function handleDelete() {
+    if (!deleteId) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/auth/users/${deleteId}/`);
+      mutate();
+      setDeleteId(null);
+    } catch {
+      // silently ignore – server already guards against self-deletion
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   if (isLoading) return <PageLoader />;
   const users = data?.results ?? [];
+  const pendingUser = users.find((u) => u.id === deleteId) ?? null;
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-5">
@@ -177,6 +195,7 @@ export default function UsersPage() {
                   <th className="table-header">Phone</th>
                   <th className="table-header">Joined</th>
                   <th className="table-header">Status</th>
+                  {isAdmin && <th className="table-header">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -197,6 +216,19 @@ export default function UsersPage() {
                         {u.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </td>
+                    {isAdmin && (
+                      <td className="table-cell">
+                        {u.id !== currentUser?.id && (
+                          <button
+                            onClick={() => setDeleteId(u.id)}
+                            title="Delete user"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -269,6 +301,34 @@ export default function UsersPage() {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete confirmation dialog */}
+      <Modal title="Delete User" open={!!deleteId} onClose={() => setDeleteId(null)} width="max-w-sm">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-600">
+            Are you sure you want to deactivate{' '}
+            <span className="font-semibold text-slate-900">{pendingUser?.full_name}</span>?
+            They will no longer be able to log in.
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setDeleteId(null)}
+              className="btn-secondary flex-1"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={deleting}
+              onClick={handleDelete}
+              className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-60"
+            >
+              {deleting ? 'Deleting...' : 'Delete'}
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
