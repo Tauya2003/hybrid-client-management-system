@@ -1,8 +1,8 @@
 # Deployment Guide
 
 Targets:
-- Backend API → `https://api.hcms.loficode.tech` (Django + Gunicorn + PM2)
-- Dashboard   → `https://hcms.loficode.tech` (Next.js standalone + PM2)
+- Backend API → `https://api.princengwenya.co.zw` (Django + Gunicorn + PM2)
+- Dashboard   → `https://princengwenya.co.zw` (Next.js standalone + PM2)
 - Database    → PostgreSQL 16 (native, on the same VPS)
 - Reverse proxy → Nginx + Let's Encrypt SSL
 
@@ -12,10 +12,11 @@ Targets:
 
 In your domain registrar / DNS provider, add two A records pointing to your VPS IP:
 
-| Type | Name                   | Value         |
-|------|------------------------|---------------|
-| A    | `hcms.loficode.tech`   | `<VPS_IP>`    |
-| A    | `api.hcms.loficode.tech` | `<VPS_IP>` |
+| Type | Name                        | Value         |
+|------|-----------------------------|---------------|
+| A    | `princengwenya.co.zw`       | `<VPS_IP>`    |
+| A    | `www.princengwenya.co.zw`   | `<VPS_IP>`    |
+| A    | `api.princengwenya.co.zw`   | `<VPS_IP>`    |
 
 Wait for DNS to propagate before running Certbot (Step 6).
 
@@ -122,7 +123,7 @@ npm ci
 npm run build
 ```
 
-> The build reads `.env.production` automatically. Confirm `NEXT_PUBLIC_API_URL=https://api.hcms.loficode.tech` is in that file before building.
+> The build reads `.env.production` automatically. Confirm `NEXT_PUBLIC_API_URL=https://api.princengwenya.co.zw` is in that file before building.
 
 ### Copy static assets into the standalone directory
 Next.js standalone mode does NOT bundle these automatically:
@@ -146,8 +147,9 @@ sudo apt install -y certbot python3-certbot-nginx
 
 # Get certs for both domains in one command
 sudo certbot --nginx \
-    -d hcms.loficode.tech \
-    -d api.hcms.loficode.tech \
+    -d princengwenya.co.zw \
+    -d www.princengwenya.co.zw \
+    -d api.princengwenya.co.zw \
     --non-interactive --agree-tos -m your@email.com
 ```
 
@@ -159,16 +161,16 @@ Certbot will automatically edit your Nginx config. You'll replace those auto-edi
 
 ```bash
 # Copy the configs from the repo
-sudo cp /var/www/hcms/nginx/api.hcms.loficode.tech \
-        /etc/nginx/sites-available/api.hcms.loficode.tech
+sudo cp /var/www/hybrid-client-management-system/nginx/api.princengwenya.co.zw \
+        /etc/nginx/sites-available/api.princengwenya.co.zw
 
-sudo cp /var/www/hcms/nginx/hcms.loficode.tech \
-        /etc/nginx/sites-available/hcms.loficode.tech
+sudo cp /var/www/hybrid-client-management-system/nginx/princengwenya.co.zw \
+        /etc/nginx/sites-available/princengwenya.co.zw
 
 # Enable both sites
-sudo ln -s /etc/nginx/sites-available/api.hcms.loficode.tech \
+sudo ln -s /etc/nginx/sites-available/api.princengwenya.co.zw \
            /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/hcms.loficode.tech \
+sudo ln -s /etc/nginx/sites-available/princengwenya.co.zw \
            /etc/nginx/sites-enabled/
 
 # Remove the default site if it exists
@@ -207,17 +209,17 @@ pm2 startup
 
 ```bash
 # Backend health check
-curl https://api.hcms.loficode.tech/api/auth/login/ \
+curl https://api.princengwenya.co.zw/api/auth/login/ \
     -H "Content-Type: application/json" \
     -d '{"username":"admin","password":"yourpassword"}'
 # Expect: {"access": "...", "refresh": "..."}
 
 # Dashboard
-curl -I https://hcms.loficode.tech
+curl -I https://princengwenya.co.zw
 # Expect: HTTP/2 200
 ```
 
-Open `https://hcms.loficode.tech` in a browser and log in.
+Open `https://princengwenya.co.zw` in a browser and log in.
 
 ---
 
@@ -230,7 +232,7 @@ cd mobile
 
 # Release APK pointing at the production API
 flutter build apk --release \
-    --dart-define=API_BASE_URL=https://api.hcms.loficode.tech/api
+    --dart-define=API_BASE_URL=https://api.princengwenya.co.zw/api
 
 # Output: build/app/outputs/flutter-apk/app-release.apk
 ```
@@ -238,7 +240,7 @@ flutter build apk --release \
 Install on a physical device:
 ```bash
 flutter install --release \
-    --dart-define=API_BASE_URL=https://api.hcms.loficode.tech/api
+    --dart-define=API_BASE_URL=https://api.princengwenya.co.zw/api
 ```
 
 > For development/emulator, run `flutter run` without `--dart-define` — it defaults to `http://10.0.2.2:8000/api`.
