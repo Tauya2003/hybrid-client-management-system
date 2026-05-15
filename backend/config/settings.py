@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from datetime import timedelta
 from decouple import config
@@ -6,7 +7,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='dev-secret-key-change-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*').split(',')
+LOG_CORS_BOOTSTRAP = config('LOG_CORS_BOOTSTRAP', default=False, cast=bool)
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in config('ALLOWED_HOSTS', default='*').split(',')
+    if host.strip()
+]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -131,8 +137,25 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://127.0.0.1:3000'
-).split(',')
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:3000,http://127.0.0.1:3000',
+    ).split(',')
+    if origin.strip()
+]
 CORS_ALLOW_CREDENTIALS = True
+
+# When True, /api/health/ may echo ALLOWED_HOSTS + CORS_ALLOWED_ORIGINS (use briefly in prod).
+CORS_BOOTSTRAP_DIAGNOSTIC = DEBUG or LOG_CORS_BOOTSTRAP
+
+if CORS_BOOTSTRAP_DIAGNOSTIC:
+    _bootstrap = logging.getLogger('config')
+    _bootstrap.info(
+        'Bootstrap CORS: DEBUG=%s LOG_CORS_BOOTSTRAP=%s ALLOWED_HOSTS=%s CORS_ALLOWED_ORIGINS=%s',
+        DEBUG,
+        LOG_CORS_BOOTSTRAP,
+        ALLOWED_HOSTS,
+        CORS_ALLOWED_ORIGINS,
+    )

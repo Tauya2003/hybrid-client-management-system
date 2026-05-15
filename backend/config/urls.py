@@ -4,8 +4,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
+from config.health import health
+
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', health, name='health'),
 
     # API schema
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
