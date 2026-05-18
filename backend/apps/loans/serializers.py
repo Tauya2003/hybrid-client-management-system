@@ -126,3 +126,13 @@ class RepaymentSerializer(serializers.ModelSerializer):
             'id', 'principal_component', 'interest_component',
             'received_by', 'created_at', 'updated_at', 'version',
         ]
+
+    def validate(self, attrs):
+        loan = attrs.get('loan')
+        amount = attrs.get('amount')
+        if loan and amount is not None:
+            if amount > loan.outstanding_balance:
+                raise serializers.ValidationError(
+                    {'amount': f'Amount cannot exceed the outstanding balance of {loan.outstanding_balance}.'}
+                )
+        return attrs

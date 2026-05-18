@@ -77,8 +77,13 @@ export default function LoanDetailPage() {
   }
 
   async function submitPayment() {
+    if (!loan) return;
     if (!form.amount || Number(form.amount) <= 0) {
       setError('Enter a valid payment amount.');
+      return;
+    }
+    if (Number(form.amount) > loan.outstanding_balance) {
+      setError(`Amount cannot exceed the outstanding balance of ${fmt.currency(loan.outstanding_balance)}.`);
       return;
     }
     setSaving(true);
@@ -255,6 +260,7 @@ export default function LoanDetailPage() {
             <input
               type="number"
               min="0.01"
+              max={loan.outstanding_balance}
               step="0.01"
               className="input w-full"
               placeholder="0.00"

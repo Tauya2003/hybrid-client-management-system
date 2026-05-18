@@ -19,6 +19,7 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
   final _referenceCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
   String? _selectedLoanId;
+  double? _outstandingBalance;
   String _paymentMethod = 'cash';
   DateTime _paymentDate = DateTime.now();
   bool _saving = false;
@@ -42,6 +43,26 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
     if (_selectedLoanId == null || _selectedLoanId!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a loan')),
+      );
+      return;
+    }
+
+    final amount = double.parse(_amountCtrl.text.trim());
+    final loansState = ref.read(loansProvider(null));
+    final maxAmount = _outstandingBalance ??
+        loansState.whenOrNull(
+          data: (loans) => loans
+              .where((l) => l.id == _selectedLoanId)
+              .firstOrNull
+              ?.outstandingBalance,
+        );
+    if (maxAmount != null && amount > maxAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Amount exceeds outstanding balance (\$${maxAmount.toStringAsFixed(2)})'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -125,7 +146,15 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
                             ),
                           )
                           .toList(),
-                      onChanged: (v) => setState(() => _selectedLoanId = v),
+                      onChanged: (v) => setState(() {
+                        _selectedLoanId = v;
+                        _outstandingBalance = v != null
+                            ? activeLoans
+                                .where((l) => l.id == v)
+                                .firstOrNull
+                                ?.outstandingBalance
+                            : null;
+                      }),
                       validator: (v) => (v == null || v.isEmpty) ? 'Loan is required' : null,
                     ),
                   );
@@ -145,6 +174,9 @@ class _RepaymentFormScreenState extends ConsumerState<RepaymentFormScreen> {
                 if (v == null || v.isEmpty) return 'Required';
                 final d = double.tryParse(v);
                 if (d == null || d <= 0) return 'Enter a valid amount';
+                if (_outstandingBalance != null && d > _outstandingBalance!) {
+                  return 'Exceeds outstanding balance (\$${_outstandingBalance!.toStringAsFixed(2)})';
+                }
                 return null;
               },
             ),
